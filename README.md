@@ -1,1 +1,1 @@
-# bootcamp-test
+echo "Checking my setup on $(date)" >> README.md
