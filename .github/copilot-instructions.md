@@ -8,6 +8,7 @@ Project rules:
 - Make small, reviewable changes.
 - Prefer updating existing files over duplicating logic.
 - After each task, summarize changed files, assumptions, and commands to run.
+- Implement only this step and then stop. Do not proceed to the next phase until I approve the current one.
 
 Architecture rules:
 - Model target is `salary_in_usd`.
