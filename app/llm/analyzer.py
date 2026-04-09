@@ -102,12 +102,7 @@ def _aggregate_prediction_stats(
 
 
 def _build_prompt(stats: Dict[str, Any]) -> str:
-    """
-    Build a compact, high-quality prompt for llama3.2:1b.
-    
-    Formats statistics as natural English to encourage natural language output.
-    Kept concise for small model performance.
-    """
+
     # Format experience levels as natural English
     exp_text = ""
     for level, data in stats.get('by_experience', {}).items():
