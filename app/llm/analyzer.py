@@ -103,36 +103,50 @@ def _aggregate_prediction_stats(
 
 def _build_prompt(stats: Dict[str, Any]) -> str:
     """
-    Build a compact prompt for llama3.2:1b.
+    Build a compact, high-quality prompt for llama3.2:1b.
     
-    Includes prediction statistics and requested output format.
+    Formats statistics as natural English to encourage natural language output.
     Kept concise for small model performance.
     """
-    prompt = f"""You are a data analyst reviewing salary predictions for data science roles.
+    # Format experience levels as natural English
+    exp_text = ""
+    for level, data in stats.get('by_experience', {}).items():
+        avg = data.get('avg', 0)
+        count = data.get('count', 0)
+        exp_text += f"{level}: ${avg:,.0f} avg ({count} roles); "
+    
+    # Format top titles as natural English
+    top_titles = stats.get('top_titles_by_salary', [])[:3]
+    titles_text = ", ".join([f"{t['title']} (${t['avg']:,.0f})" for t in top_titles])
+    
+    prompt = f"""You are a data analyst. Analyze these salary predictions and respond with ONLY valid JSON.
 
-Statistics from {stats.get('count', 0)} predictions:
-- Average salary: ${stats.get('avg_salary', 0):,.0f}
-- Range: ${stats.get('min_salary', 0):,.0f} - ${stats.get('max_salary', 0):,.0f}
-- By experience level: {json.dumps(stats.get('by_experience', {}), indent=2)}
-- Top paying job titles: {json.dumps(stats.get('top_titles_by_salary', [])[:3], indent=2)}
+Data from {stats.get('count', 0)} predictions:
+- Average: ${stats.get('avg_salary', 0):,.0f} (range: ${stats.get('min_salary', 0):,.0f}-${stats.get('max_salary', 0):,.0f})
+- By experience: {exp_text.strip()}
+- Top paying roles: {titles_text}
 
-Generate a JSON response with exactly this structure (no markdown, no extra text):
+IMPORTANT RULES FOR YOUR RESPONSE:
+1. "title": One clear insight as a short sentence (not a question, not JSON)
+2. "summary": 1-2 natural English sentences about the data. Write like a person, not like code.
+3. "key_insights": Array of 3 short, readable observations. Each insight is 1 short sentence.
+4. "chart": Bar chart setup (as shown below)
+
+Return ONLY this JSON structure, no markdown or extra text:
 {{
-  "title": "One-sentence analysis title",
-  "summary": "1-2 sentences grounding insights in the data above. Be specific about numbers and patterns.",
-  "key_insights": ["insight 1", "insight 2", "insight 3"],
+  "title": "Short clear title",
+  "summary": "Natural English. No JSON. No statistics text.",
+  "key_insights": ["observation 1", "observation 2", "observation 3"],
   "chart": {{
     "chart_type": "bar",
     "title": "Chart title",
-    "x": "experience_level or job_title",
+    "x": "experience_level",
     "y": "predicted_salary_usd",
     "color": null,
     "aggregation": "mean",
-    "description": "Why this chart matters"
+    "description": "Short explanation"
   }}
-}}
-
-Return ONLY valid JSON, nothing else."""
+}}"""
     
     return prompt
 
