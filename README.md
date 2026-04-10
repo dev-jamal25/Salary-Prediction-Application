@@ -110,6 +110,8 @@ Start the Streamlit dashboard to explore stored runs, predictions, and analysis.
 
 
 ## Repo Structure
+
+```text
 Salary-Prediction-Application/
 ├── app/
 │   ├── api/
