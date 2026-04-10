@@ -52,6 +52,8 @@ from app.storage.repository import (
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 PREDICT_ENDPOINT = f"{API_BASE_URL}/predict"
+PREDICT_BATCH_ENDPOINT = f"{API_BASE_URL}/predict-batch"
+CHUNK_SIZE = 50  # Default chunk size for batch predictions
 API_TIMEOUT = 10  # seconds
 ARTIFACTS_DIR = project_root / "artifacts"
 
@@ -87,6 +89,51 @@ def call_predict_api(scenario: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]]
         )
         response.raise_for_status()
         return response.json(), "success"
+    except requests.exceptions.ConnectionError as e:
+        error_msg = f"Connection error: {str(e)}"
+        logger.warning(error_msg)
+        return None, error_msg
+    except requests.exceptions.Timeout as e:
+        error_msg = f"Timeout: {str(e)}"
+        logger.warning(error_msg)
+        return None, error_msg
+    except requests.exceptions.HTTPError as e:
+        error_msg = f"HTTP {response.status_code}: {response.text[:100]}"
+        logger.warning(error_msg)
+        return None, error_msg
+    except Exception as e:
+        error_msg = f"Error: {str(e)}"
+        logger.warning(error_msg)
+        return None, error_msg
+
+
+def call_predict_batch_api(scenarios: List[Dict[str, Any]]) -> Tuple[Optional[List[Dict[str, Any]]], str]:
+    """
+    Call FastAPI /predict-batch endpoint with a batch of scenarios.
+    
+    Args:
+        scenarios: List of dicts with keys: work_year, experience_level, employment_type, job_title,
+                  employee_residence, remote_ratio, company_location, company_size
+    
+    Returns:
+        Tuple of (list_of_predictions or None, status_string)
+        Each prediction has: all 8 input fields + predicted_salary_usd + api_status
+        status_string is either 'success' or error message
+    """
+    if not scenarios:
+        return [], "success"
+    
+    try:
+        payload = {"scenarios": scenarios}
+        response = requests.post(
+            PREDICT_BATCH_ENDPOINT,
+            json=payload,
+            timeout=API_TIMEOUT
+        )
+        response.raise_for_status()
+        batch_response = response.json()
+        predictions = batch_response.get("predictions", [])
+        return predictions, "success"
     except requests.exceptions.ConnectionError as e:
         error_msg = f"Connection error: {str(e)}"
         logger.warning(error_msg)
@@ -328,6 +375,12 @@ def main():
         default=None,
         help="Optional human-readable run name (auto-generated if not provided)"
     )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=CHUNK_SIZE,
+        help=f"Batch size for API predictions (default: {CHUNK_SIZE})"
+    )
     args = parser.parse_args()
     
     logger.info("Starting pipeline orchestration")
@@ -374,33 +427,55 @@ def main():
             )
             return 1
         
-        # Step 2: Call API for each scenario
-        logger.info("Step 2: Calling API for predictions")
+        # Step 2: Call API for predictions using batch chunks
+        logger.info(f"Step 2: Calling API for predictions (chunk size: {args.chunk_size})")
         predictions = []
-        for i, scenario in enumerate(scenarios):
-            if (i + 1) % max(1, scenario_count // 10) == 0:
-                logger.info(f"Progress: {i + 1}/{scenario_count}")
+        total_chunks = (scenario_count + args.chunk_size - 1) // args.chunk_size
+        
+        for chunk_idx in range(total_chunks):
+            start_idx = chunk_idx * args.chunk_size
+            end_idx = min(start_idx + args.chunk_size, scenario_count)
+            chunk = scenarios[start_idx:end_idx]
             
-            api_response, api_status = call_predict_api(scenario)
+            logger.info(f"Processing chunk {chunk_idx + 1}/{total_chunks} (scenarios {start_idx + 1}-{end_idx})")
             
-            if api_response:
-                prediction = transform_api_response_to_prediction(scenario, api_response, api_status)
+            # Call batch API
+            batch_predictions, batch_status = call_predict_batch_api(chunk)
+            
+            if batch_predictions and batch_status == "success":
+                # Successfully retrieved batch predictions
+                for pred_item in batch_predictions:
+                    # Convert batch response item to prediction dict
+                    prediction = {
+                        "work_year": pred_item["work_year"],
+                        "experience_level": pred_item["experience_level"],
+                        "employment_type": pred_item["employment_type"],
+                        "job_title": pred_item["job_title"],
+                        "employee_residence": pred_item["employee_residence"],
+                        "remote_ratio": pred_item["remote_ratio"],
+                        "company_location": pred_item["company_location"],
+                        "company_size": pred_item["company_size"],
+                        "predicted_salary_usd": pred_item["predicted_salary_usd"],
+                        "api_status": pred_item.get("api_status", "success"),
+                    }
+                    predictions.append(prediction)
             else:
-                # Use scenario values if API failed
-                prediction = {
-                    "work_year": scenario["work_year"],
-                    "experience_level": scenario["experience_level"],
-                    "employment_type": scenario["employment_type"],
-                    "job_title": scenario["job_title"],
-                    "employee_residence": scenario["employee_residence"],
-                    "remote_ratio": scenario["remote_ratio"],
-                    "company_location": scenario["company_location"],
-                    "company_size": scenario["company_size"],
-                    "predicted_salary_usd": 0,
-                    "api_status": api_status,
-                }
-            
-            predictions.append(prediction)
+                # Batch call failed, mark all scenarios in chunk with error
+                logger.warning(f"Batch {chunk_idx + 1} failed: {batch_status}")
+                for scenario in chunk:
+                    prediction = {
+                        "work_year": scenario["work_year"],
+                        "experience_level": scenario["experience_level"],
+                        "employment_type": scenario["employment_type"],
+                        "job_title": scenario["job_title"],
+                        "employee_residence": scenario["employee_residence"],
+                        "remote_ratio": scenario["remote_ratio"],
+                        "company_location": scenario["company_location"],
+                        "company_size": scenario["company_size"],
+                        "predicted_salary_usd": 0,
+                        "api_status": batch_status,
+                    }
+                    predictions.append(prediction)
         
         logger.info(f"Collected {len(predictions)} predictions")
         

@@ -63,7 +63,7 @@ def load_cleaned_dataset() -> pd.DataFrame:
 
 def extract_anchor_triples(
     df: pd.DataFrame,
-    max_triples: int = 30
+    max_triples: int = 5
 ) -> List[Tuple[str, str, str]]:
     """
     Extract representative anchor triples from the dataset.
@@ -107,7 +107,7 @@ def extract_anchor_triples(
     return triples
 
 
-def generate_scenarios(max_anchor_triples: int = 30) -> List[Dict[str, Any]]:
+def generate_scenarios(max_anchor_triples: int = 5) -> List[Dict[str, Any]]:
     """
     Generate prediction scenarios.
     

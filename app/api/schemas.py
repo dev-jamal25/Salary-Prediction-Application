@@ -155,3 +155,30 @@ class PredictionResponse(BaseModel):
     predicted_salary_usd: float
     model_info: ModelInfo
 
+
+class BatchPredictionRequest(BaseModel):
+    """Batch prediction request with list of scenarios."""
+    scenarios: list[dict[str, Any]] = Field(..., description="List of prediction scenarios")
+
+
+class BatchPredictionItemResponse(BaseModel):
+    """Single prediction result in batch response."""
+    work_year: int
+    experience_level: str
+    employment_type: str
+    job_title: str
+    employee_residence: str
+    remote_ratio: int
+    company_location: str
+    company_size: str
+    predicted_salary_usd: float
+    api_status: str = "success"
+
+
+class BatchPredictionResponse(BaseModel):
+    """Batch prediction response with results."""
+    predictions: list[BatchPredictionItemResponse]
+    total: int
+    successful: int
+    failed: int
+

@@ -1,8 +1,9 @@
 """FastAPI prediction API.
 
-Two endpoints:
+Three endpoints:
 - GET /health: Status check
-- GET /predict: Salary prediction
+- GET /predict: Single scenario prediction
+- POST /predict-batch: Batch predictions for multiple scenarios
 
 Model loads once at startup and is cached for all requests.
 """
@@ -16,7 +17,8 @@ from . import loader
 from .schemas import (
     PredictionRequest, PredictionResponse, InputsWithLabels, ValueLabel,
     EXPERIENCE_LEVEL_LABELS, EMPLOYMENT_TYPE_LABELS, COMPANY_SIZE_LABELS,
-    REMOTE_RATIO_LABELS, ModelInfo
+    REMOTE_RATIO_LABELS, ModelInfo,
+    BatchPredictionRequest, BatchPredictionResponse, BatchPredictionItemResponse
 )
 
 
@@ -135,3 +137,106 @@ async def predict(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/predict-batch", response_model=BatchPredictionResponse)
+async def predict_batch(request: BatchPredictionRequest):
+    """Predict salary for multiple scenarios in batch.
+    
+    Validates each scenario and returns predictions with raw values.
+    Includes api_status for each prediction (success or error message).
+    """
+    if not request.scenarios:
+        raise HTTPException(status_code=422, detail="Scenarios list cannot be empty")
+    
+    try:
+        model = loader.load_model()
+        metadata = loader.load_metadata()
+        
+        predictions_list = []
+        successful_count = 0
+        failed_count = 0
+        
+        # Process each scenario
+        for scenario in request.scenarios:
+            try:
+                # Validate using PredictionRequest schema
+                validated_input = PredictionRequest(**scenario)
+                
+                # Create DataFrame for prediction
+                input_df = pd.DataFrame({
+                    "work_year": [validated_input.work_year],
+                    "experience_level": [validated_input.experience_level],
+                    "employment_type": [validated_input.employment_type],
+                    "job_title": [validated_input.job_title],
+                    "employee_residence": [validated_input.employee_residence],
+                    "remote_ratio": [validated_input.remote_ratio],
+                    "company_location": [validated_input.company_location],
+                    "company_size": [validated_input.company_size],
+                })
+                
+                # Make prediction
+                prediction_value = float(model.predict(input_df)[0])
+                
+                # Build response item with raw values only
+                item = BatchPredictionItemResponse(
+                    work_year=validated_input.work_year,
+                    experience_level=validated_input.experience_level,
+                    employment_type=validated_input.employment_type,
+                    job_title=validated_input.job_title,
+                    employee_residence=validated_input.employee_residence,
+                    remote_ratio=validated_input.remote_ratio,
+                    company_location=validated_input.company_location,
+                    company_size=validated_input.company_size,
+                    predicted_salary_usd=prediction_value,
+                    api_status="success"
+                )
+                predictions_list.append(item)
+                successful_count += 1
+                
+            except ValidationError as e:
+                # Include failed scenario with error status
+                item = BatchPredictionItemResponse(
+                    work_year=scenario.get("work_year", 0),
+                    experience_level=scenario.get("experience_level", ""),
+                    employment_type=scenario.get("employment_type", ""),
+                    job_title=scenario.get("job_title", ""),
+                    employee_residence=scenario.get("employee_residence", ""),
+                    remote_ratio=scenario.get("remote_ratio", 0),
+                    company_location=scenario.get("company_location", ""),
+                    company_size=scenario.get("company_size", ""),
+                    predicted_salary_usd=0,
+                    api_status=f"Validation error: {str(e)[:100]}"
+                )
+                predictions_list.append(item)
+                failed_count += 1
+                
+            except Exception as e:
+                # Include failed scenario with error status
+                item = BatchPredictionItemResponse(
+                    work_year=scenario.get("work_year", 0),
+                    experience_level=scenario.get("experience_level", ""),
+                    employment_type=scenario.get("employment_type", ""),
+                    job_title=scenario.get("job_title", ""),
+                    employee_residence=scenario.get("employee_residence", ""),
+                    remote_ratio=scenario.get("remote_ratio", 0),
+                    company_location=scenario.get("company_location", ""),
+                    company_size=scenario.get("company_size", ""),
+                    predicted_salary_usd=0,
+                    api_status=f"Error: {str(e)[:100]}"
+                )
+                predictions_list.append(item)
+                failed_count += 1
+        
+        return BatchPredictionResponse(
+            predictions=predictions_list,
+            total=len(predictions_list),
+            successful=successful_count,
+            failed=failed_count
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
