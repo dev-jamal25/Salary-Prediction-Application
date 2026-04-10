@@ -1,12 +1,3 @@
-<<<<<<< HEAD
-# Virtual environments
-.venv/
-
-
-# Environment variable files
-.env
-.env.*
-=======
 # Virtual environments
 .venv/
 venv/
@@ -19,4 +10,3 @@ env/
 
 # Local data outputs
 data/processed/
->>>>>>> e5c8c0873d83ca71cc664b234a7d624cd2c77cbc

@@ -341,6 +341,87 @@ def main():
             st.info("No chart specification available for this run.")
     
     # ========================================================================
+    # Section 5: Manual Chart Explorer
+    # ========================================================================
+    if not predictions_df.empty:
+        st.header("🔍 Manual Chart Explorer")
+        st.markdown("Create custom charts from this run's predictions.")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # Chart type selector
+        with col1:
+            explorer_chart_type = st.selectbox(
+                "Chart Type",
+                options=["bar", "line", "scatter", "boxplot", "histogram"],
+                key="explorer_chart_type"
+            )
+        
+        # Get numeric and categorical columns
+        numeric_cols = predictions_df.select_dtypes(include=['number']).columns.tolist()
+        categorical_cols = predictions_df.select_dtypes(include=['object']).columns.tolist()
+        
+        # X field selector
+        with col2:
+            if explorer_chart_type == "histogram":
+                x_options = numeric_cols
+            else:
+                x_options = categorical_cols if categorical_cols else numeric_cols
+            
+            if x_options:
+                explorer_x = st.selectbox(
+                    "X Field",
+                    options=x_options,
+                    key="explorer_x"
+                )
+            else:
+                explorer_x = None
+        
+        # Y field selector
+        with col3:
+            if explorer_chart_type == "histogram":
+                y_options = numeric_cols
+                default_y = y_options[0] if y_options else None
+            else:
+                y_options = numeric_cols if numeric_cols else []
+                default_y = next((col for col in y_options if "salary" in col.lower()), y_options[0] if y_options else None)
+            
+            if y_options:
+                explorer_y = st.selectbox(
+                    "Y Field",
+                    options=y_options,
+                    index=y_options.index(default_y) if default_y in y_options else 0,
+                    key="explorer_y"
+                )
+            else:
+                explorer_y = None
+        
+        # Aggregation selector (for bar/line/boxplot)
+        with col4:
+            if explorer_chart_type in ["bar", "line"]:
+                explorer_agg = st.selectbox(
+                    "Aggregation",
+                    options=["mean", "median", "min", "max", "sum"],
+                    index=0,
+                    key="explorer_agg"
+                )
+            else:
+                explorer_agg = "mean"  # Default for non-aggregation charts
+        
+        # Create and render explorer chart
+        if explorer_x and explorer_y:
+            explorer_spec = {
+                "chart_type": explorer_chart_type,
+                "x": explorer_x,
+                "y": explorer_y,
+                "title": f"{explorer_chart_type.capitalize()} Chart: {explorer_x} vs {explorer_y}",
+                "aggregation": explorer_agg
+            }
+            render_chart(explorer_spec, predictions_df)
+        else:
+            st.warning("⚠️ Not enough columns available to create chart.")
+    
+    # ========================================================================
     # Footer
     # ========================================================================
     st.divider()
