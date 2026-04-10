@@ -1,0 +1,18 @@
+{
+  "title": "Salary Prediction Insights",
+  "summary": "The average salary range is $77,500 to $417,000 across 108 roles.",
+  "key_insights": [
+    "Industry salaries vary greatly by experience level.",
+    "Top paying roles are Data Engineers with an average salary of $177,855.",
+    "Data Engineer salaries tend to be more consistent across different states."
+  ],
+  "chart": {
+    "chart_type": "bar",
+    "title": "Salary Prediction by Experience Level",
+    "x": "experience_level",
+    "y": "predicted_salary_usd",
+    "color": null,
+    "aggregation": "mean",
+    "description": "This bar chart shows the average predicted salary across different experience levels."
+  }
+}
