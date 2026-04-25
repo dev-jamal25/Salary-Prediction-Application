@@ -184,7 +184,7 @@ def main():
     # ========================================================================
     # Section 2: LLM Analysis
     # ========================================================================
-    st.header("📖 LLM Analysis")
+    st.header("📖 Analysis")
     
     analysis = get_analysis_for_run(selected_run_id)
     
@@ -217,7 +217,7 @@ def main():
     if predictions_df.empty:
         st.warning("No predictions found for this run.")
     else:
-        st.markdown(f"**Total predictions:** {len(predictions_df)}")
+        # st.markdown(f"**Total predictions:** {len(predictions_df)}")
         
         # Filters
         st.subheader("Filters")
@@ -231,7 +231,6 @@ def main():
                 selected_exp = st.multiselect(
                     "Experience Level",
                     options=unique_exp,
-                    default=unique_exp,
                     format_func=lambda x: get_friendly_label(x, EXPERIENCE_LABELS)
                 )
                 filters["experience_level"] = selected_exp
@@ -242,7 +241,6 @@ def main():
                 selected_emp = st.multiselect(
                     "Employment Type",
                     options=unique_emp,
-                    default=unique_emp,
                     format_func=lambda x: get_friendly_label(x, EMPLOYMENT_LABELS)
                 )
                 filters["employment_type"] = selected_emp
@@ -253,7 +251,6 @@ def main():
                 selected_remote = st.multiselect(
                     "Remote Work",
                     options=unique_remote,
-                    default=unique_remote,
                     format_func=lambda x: get_friendly_label(x, REMOTE_RATIO_LABELS)
                 )
                 filters["remote_ratio"] = selected_remote
@@ -263,7 +260,6 @@ def main():
             selected_titles = st.multiselect(
                 "Job Title",
                 options=unique_titles,
-                default=unique_titles,
                 help="Leave empty to show all titles"
             )
             if selected_titles:
@@ -274,7 +270,6 @@ def main():
             selected_locations = st.multiselect(
                 "Company Location",
                 options=unique_locations,
-                default=unique_locations,
                 help="Leave empty to show all locations"
             )
             if selected_locations:
@@ -285,7 +280,6 @@ def main():
             selected_sizes = st.multiselect(
                 "Company Size",
                 options=unique_sizes,
-                default=unique_sizes,
                 format_func=lambda x: get_friendly_label(x, COMPANY_SIZE_LABELS)
             )
             filters["company_size"] = selected_sizes
@@ -303,7 +297,7 @@ def main():
         display_cols = [
             "work_year", "Experience Level", "Employment Type", "job_title",
             "employee_residence", "Remote Work", "company_location", "Company Size",
-            "Predicted Salary", "api_status"
+            "Predicted Salary"
         ]
         display_cols = [c for c in display_cols if c in display_df.columns]
         
@@ -316,7 +310,7 @@ def main():
         # Summary statistics
         st.markdown("**Summary Statistics**")
         col1, col2, col3, col4 = st.columns(4)
-        with col1:
+        with col1: 
             avg_salary = filtered_df["predicted_salary_usd"].mean()
             st.metric("Average Salary", f"${avg_salary:,.0f}")
         with col2:
