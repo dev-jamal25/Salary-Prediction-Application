@@ -106,7 +106,7 @@ starlette==1.0.0
 terminado==0.18.1
 threadpoolctl==3.6.0
 tinycss2==1.4.0
-tornado==6.5.5
+tornado==6.5.6
 traitlets==5.14.3
 typing-inspection==0.4.2
 typing_extensions==4.15.0
